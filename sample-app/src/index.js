@@ -116,7 +116,8 @@ function selectEvent() {
   return events[0];
 }
 
-function generateLog() {
+
+async function generateLog() {
   const selectedEvent = selectEvent();
 
   const durationMs = randomInt(
@@ -143,8 +144,34 @@ function generateLog() {
     };
   }
 
-  // Output one JSON object per line.
+  // Print the generated log.
   console.log(JSON.stringify(log));
+
+  // Send the log to the LogSense backend.
+  try {
+    const response = await fetch(
+      "http://localhost:3000/api/logs",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(log)
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        `Log ingestion failed: HTTP ${response.status}`
+      );
+    } else {
+      console.log("[LogSense] Log successfully ingested");
+    }
+  } catch (error) {
+    console.error(
+      `[LogSense] Backend connection failed: ${error.message}`
+    );
+  }
 }
 
 console.log(
