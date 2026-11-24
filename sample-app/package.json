@@ -1,0 +1,11 @@
+
+{
+  "name": "logsense-sample-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sample e-commerce application for generating structured logs for LogSense AI",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  }
+}
