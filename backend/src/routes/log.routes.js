@@ -9,7 +9,10 @@ import {
 } from "../services/log.service.js";
 
 import { validateLog } from "../utils/log.validator.js";
-import { sendError } from "../utils/api-response.js";
+import {
+  sendError,
+  sendSuccess
+} from "../utils/api-response.js";
 
 const router = express.Router();
 
@@ -24,11 +27,13 @@ router.post("/", async (req, res, next) => {
 
     const log = await addLog(req.body);
 
-    return res.status(201).json({
-      success: true,
-      message: "Log received successfully",
-      data: log
-    });
+    return sendSuccess(
+      res,
+      req,
+      201,
+      "Log received successfully",
+      log
+    );
   } catch (error) {
     next(error);
   }
@@ -69,11 +74,15 @@ router.post("/batch", async (req, res, next) => {
     // Store all logs in a database transaction.
     const storedLogs = await addLogs(logs);
 
-    return res.status(201).json({
-      success: true,
-      message: "Logs received successfully",
-      count: storedLogs.length
-    });
+    return sendSuccess(
+      res,
+      req,
+      201,
+      "Logs received successfully",
+      {
+        count: storedLogs.length
+      }
+    );
 
   } catch (error) {
     next(error);
@@ -165,14 +174,38 @@ router.get("/", async (req, res, next) => {
       endDate
     });
 
-    return res.status(200).json({
-      success: true,
-      ...result,
-      totalPages: Math.ceil(result.total / limit)
-    });
+    return sendSuccess(
+      res,
+      req,
+      200,
+      "Logs retrieved successfully",
+      {
+        ...result,
+        totalPages: Math.ceil(result.total / limit)
+      }
+    );
   } catch (error) {
     next(error);
   }
 });
+
+
+// Retrieve log statistics.
+router.get("/stats", async (req, res, next) => {
+  try {
+    const stats = await getLogStats();
+
+    return sendSuccess(
+      res,
+      req,
+      200,
+      "Log statistics retrieved successfully",
+      stats
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 export default router;
