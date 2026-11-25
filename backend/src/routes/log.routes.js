@@ -9,6 +9,7 @@ import {
 } from "../services/log.service.js";
 
 import { validateLog } from "../utils/log.validator.js";
+import { sendError } from "../utils/api-response.js";
 
 const router = express.Router();
 
@@ -18,10 +19,7 @@ router.post("/", async (req, res, next) => {
     const error = validateLog(req.body);
 
     if (error) {
-      return res.status(400).json({
-        success: false,
-        error
-      });
+      return sendError(res, req, 400, error);
     }
 
     const log = await addLog(req.body);
@@ -39,36 +37,36 @@ router.post("/", async (req, res, next) => {
 // Receive multiple log events.
 router.post("/batch", async (req, res, next) => {
   try {
-    const { logs } = req.body;
+    const { logs } = req.body ?? {};
 
+    const MAX_BATCH_SIZE = 500;
+
+    // Validate the batch.
     if (!Array.isArray(logs) || logs.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: "Request must contain a non-empty logs array"
-      });
+      return sendError(res, req, 400, "Request must contain a non-empty logs array");
     }
 
+    // Prevent excessively large batches.
+    if (logs.length > MAX_BATCH_SIZE) {
+      return sendError(res, req, 413, `Batch size exceeds the maximum limit of ${MAX_BATCH_SIZE} logs`);
+    }
+
+    // Validate every log before inserting anything.
     const errors = [];
 
     logs.forEach((log, index) => {
       const error = validateLog(log);
 
       if (error) {
-        errors.push({
-          index,
-          error
-        });
+        errors.push({ index, error });
       }
     });
 
     if (errors.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Batch validation failed",
-        errors
-      });
+      return sendError(res, req, 400, "Batch validation failed", errors);
     }
 
+    // Store all logs in a database transaction.
     const storedLogs = await addLogs(logs);
 
     return res.status(201).json({
@@ -76,6 +74,7 @@ router.post("/batch", async (req, res, next) => {
       message: "Logs received successfully",
       count: storedLogs.length
     });
+
   } catch (error) {
     next(error);
   }
@@ -92,7 +91,7 @@ router.get("/", async (req, res, next) => {
       ? 20
       : Number(req.query.limit);
 
-    const { level, service } = req.query;
+    const { level, service, search, startDate, endDate } = req.query;
 
     // Validate pagination.
     if (
@@ -102,45 +101,68 @@ router.get("/", async (req, res, next) => {
       limit < 1 ||
       limit > 100
     ) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid pagination. Page must be at least 1 and limit must be between 1 and 100."
-      });
+      return sendError(res, req, 400, "Invalid pagination. Page must be at least 1 and limit must be between 1 and 100.");
     }
 
     // Validate log level.
     if (
       level !== undefined &&
-      (
-        typeof level !== "string" ||
-        !["INFO", "WARN", "ERROR"].includes(level)
-      )
+      (typeof level !== "string" ||
+        !["INFO", "WARN", "ERROR"].includes(level))
     ) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid log level. Allowed values: INFO, WARN, ERROR"
-      });
+      return sendError(res, req, 400, "Invalid log level. Allowed values: INFO, WARN, ERROR");
     }
 
     // Validate service filter.
     if (
       service !== undefined &&
-      (
-        typeof service !== "string" ||
-        service.trim() === ""
-      )
+      (typeof service !== "string" || service.trim() === "")
     ) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid service filter"
-      });
+      return sendError(res, req, 400, "Invalid service filter");
+    }
+
+    // Validate search query.
+    if (
+      search !== undefined &&
+      (typeof search !== "string" ||
+        search.trim() === "" ||
+        search.length > 200)
+    ) {
+      return sendError(res, req, 400, "Search must be a non-empty string of at most 200 characters");
+    }
+
+    // Validate date parameters.
+    for (const [name, value] of [
+      ["startDate", startDate],
+      ["endDate", endDate]
+    ]) {
+      if (
+        value !== undefined &&
+        (typeof value !== "string" ||
+          value.trim() === "" ||
+          Number.isNaN(Date.parse(value)))
+      ) {
+        return sendError(res, req, 400, `Invalid ${name}. Provide a valid ISO 8601 date or timestamp.`);
+      }
+    }
+
+    // Ensure the start date is not later than the end date.
+    if (
+      startDate &&
+      endDate &&
+      new Date(startDate) > new Date(endDate)
+    ) {
+      return sendError(res, req, 400, "startDate cannot be later than endDate");
     }
 
     const result = await getLogs({
       page,
       limit,
       level,
-      service
+      service,
+      search: search?.trim(),
+      startDate,
+      endDate
     });
 
     return res.status(200).json({

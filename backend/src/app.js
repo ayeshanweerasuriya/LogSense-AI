@@ -43,6 +43,17 @@ app.get("/ready", async (req, res) => {
 // Log ingestion API.
 app.use("/api/logs", logRoutes);
 
+// Handle requests to unknown routes.
+app.use((req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: "API endpoint not found",
+    statusCode: 404,
+    timestamp: new Date().toISOString(),
+    path: req.originalUrl
+  });
+});
+
 // Centralized error handling.
 app.use(errorHandler);
 

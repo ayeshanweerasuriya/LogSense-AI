@@ -58,6 +58,14 @@ export async function addLog(log) {
 
 // Insert multiple logs in a single transaction.
 export async function addLogs(newLogs) {
+  if (!Array.isArray(newLogs) || newLogs.length === 0) {
+    throw new Error("A non-empty array of logs is required");
+  }
+
+  if (newLogs.length > 500) {
+    throw new Error("Batch size cannot exceed 500 logs");
+  }
+
   const client = await pool.connect();
 
   try {
@@ -104,17 +112,31 @@ export async function addLogs(newLogs) {
     await client.query("COMMIT");
 
     return newLogs;
+
   } catch (error) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("Database rollback failed:", rollbackError.message);
+    }
+
     throw error;
+
   } finally {
     client.release();
   }
 }
 
 // Retrieve all logs, newest first.
-
-export async function getLogs({ page = 1, limit = 20, level, service } = {}) {
+export async function getLogs({
+  page = 1,
+  limit = 20,
+  level,
+  service,
+  search,
+  startDate,
+  endDate
+} = {}) {
   const offset = (page - 1) * limit;
 
   const conditions = [];
@@ -128,6 +150,28 @@ export async function getLogs({ page = 1, limit = 20, level, service } = {}) {
   if (service) {
     values.push(service);
     conditions.push(`service = $${values.length}`);
+  }
+
+  if (search) {
+    values.push(`%${search}%`);
+    const searchParam = `$${values.length}`;
+
+    conditions.push(`(
+      message ILIKE ${searchParam}
+      OR event ILIKE ${searchParam}
+      OR service ILIKE ${searchParam}
+      OR request_id ILIKE ${searchParam}
+    )`);
+  }
+
+  if (startDate) {
+    values.push(startDate);
+    conditions.push(`timestamp >= $${values.length}`);
+  }
+
+  if (endDate) {
+    values.push(endDate);
+    conditions.push(`timestamp <= $${values.length}`);
   }
 
   const whereClause = conditions.length
