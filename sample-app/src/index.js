@@ -117,6 +117,7 @@ function selectEvent() {
 }
 
 
+
 async function generateLog() {
   const selectedEvent = selectEvent();
 
