@@ -89,6 +89,14 @@ Replace the placeholder with a strong local password.
 - The `.env.example` file contains placeholders and can safely be committed.
 - Docker Compose reads the root `.env` file automatically.
 
+### Initialize the development database schema
+
+From the project root, execute:
+
+```bash
+docker exec -i logsense-postgres psql -U logsense_user -d logsense < backend/src/database/schema.sql
+```
+
 ### Test Database Configuration
 
 The backend integration tests use a separate database to avoid modifying development data.
