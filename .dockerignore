@@ -1,0 +1,33 @@
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Node.js dependencies
+node_modules/
+**/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build output
+dist/
+.next/
+coverage/
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# IDE
+.vscode/
+.idea/
