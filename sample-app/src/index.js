@@ -5,6 +5,10 @@ const SERVICE_NAME = "ecommerce-api";
 const ENVIRONMENT = "development";
 const LOG_INTERVAL = 1000;
 
+const BACKEND_URL =
+  process.env.LOGSENSE_BACKEND_URL ||
+  "http://localhost:3000/api/logs";
+
 // Simulated application events
 const events = [
   {
@@ -151,7 +155,7 @@ async function generateLog() {
   // Send the log to the LogSense backend.
   try {
     const response = await fetch(
-      "http://localhost:3000/api/logs",
+      BACKEND_URL,
       {
         method: "POST",
         headers: {
